@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 
 
+
 def register(request):
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
@@ -47,3 +48,4 @@ def SearchView(request):
             'results':results
         }
         return render(request, 'users/search_result.html', context)
+

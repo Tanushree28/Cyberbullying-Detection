@@ -14,9 +14,14 @@ from rest_framework import viewsets
 from rest_framework import permissions
 from rest_framework.decorators import api_view
 from django.http.response import JsonResponse
-from rest_framework.parsers import JSONParser 
+from rest_framework.parsers import JSONParser
 from rest_framework import status
+import pickle
 
+
+# # our home page view
+# def home(request):    
+#     return render(request, 'home.html')
 
 def is_users(post_user, logged_user):
     return post_user == logged_user
@@ -36,9 +41,9 @@ class PostListView(LoginRequiredMixin, ListView):
         data = super().get_context_data(**kwargs)
 
         all_users = []
-        data_counter = Post.objects.values('author')\
-            .annotate(author_count=Count('author'))\
-            .order_by('-author_count')[:6]
+        data_counter = Post.objects.values('author') \
+                           .annotate(author_count=Count('author')) \
+                           .order_by('-author_count')[:6]
 
         for aux in data_counter:
             all_users.append(User.objects.filter(pk=aux['author']).first())
@@ -96,12 +101,12 @@ class UserPostListView(LoginRequiredMixin, ListView):
                                                     follow_user=self.visible_user())
 
             if 'follow' in request.POST:
-                    new_relation = Follow(user=request.user, follow_user=self.visible_user())
-                    if follows_between.count() == 0:
-                        new_relation.save()
+                new_relation = Follow(user=request.user, follow_user=self.visible_user())
+                if follows_between.count() == 0:
+                    new_relation.save()
             elif 'unfollow' in request.POST:
-                    if follows_between.count() > 0:
-                        follows_between.delete()
+                if follows_between.count() > 0:
+                    follows_between.delete()
 
         return self.get(self, request, *args, **kwargs)
 
@@ -212,111 +217,102 @@ class FollowersListView(ListView):
 
 @login_required
 def postpreference(request, postid, userpreference):
-        
-        if request.method == "POST":
-                eachpost= get_object_or_404(Post, id=postid)
+    if request.method == "POST":
+        eachpost = get_object_or_404(Post, id=postid)
 
-                obj=''
+        obj = ''
 
-                valueobj=''
+        valueobj = ''
 
-                try:
-                        obj= Preference.objects.get(user= request.user, post= eachpost)
+        try:
+            obj = Preference.objects.get(user=request.user, post=eachpost)
 
-                        valueobj= obj.value #value of userpreference
+            valueobj = obj.value  # value of userpreference
 
+            valueobj = int(valueobj)
 
-                        valueobj= int(valueobj)
+            userpreference = int(userpreference)
 
-                        userpreference= int(userpreference)
-                
-                        if valueobj != userpreference:
-                                obj.delete()
+            if valueobj != userpreference:
+                obj.delete()
 
+                upref = Preference()
+                upref.user = request.user
 
-                                upref= Preference()
-                                upref.user= request.user
+                upref.post = eachpost
 
-                                upref.post= eachpost
+                upref.value = userpreference
 
-                                upref.value= userpreference
+                if userpreference == 1 and valueobj != 1:
+                    eachpost.likes += 1
+                    eachpost.dislikes -= 1
+                elif userpreference == 2 and valueobj != 2:
+                    eachpost.dislikes += 1
+                    eachpost.likes -= 1
 
+                upref.save()
 
-                                if userpreference == 1 and valueobj != 1:
-                                        eachpost.likes += 1
-                                        eachpost.dislikes -=1
-                                elif userpreference == 2 and valueobj != 2:
-                                        eachpost.dislikes += 1
-                                        eachpost.likes -= 1
-                                
+                eachpost.save()
 
-                                upref.save()
+                context = {'eachpost': eachpost,
+                           'postid': postid}
 
-                                eachpost.save()
-                        
-                        
-                                context= {'eachpost': eachpost,
-                                  'postid': postid}
+                return redirect('blog-home')
 
-                                return redirect('blog-home')
+            elif valueobj == userpreference:
+                obj.delete()
 
-                        elif valueobj == userpreference:
-                                obj.delete()
-                        
-                                if userpreference == 1:
-                                        eachpost.likes -= 1
-                                elif userpreference == 2:
-                                        eachpost.dislikes -= 1
+                if userpreference == 1:
+                    eachpost.likes -= 1
+                elif userpreference == 2:
+                    eachpost.dislikes -= 1
 
-                                eachpost.save()
+                eachpost.save()
 
-                                context= {'eachpost': eachpost,
-                                  'postid': postid}
-
-                                return redirect('blog-home')
-                                
-                        
-        
-                
-                except Preference.DoesNotExist:
-                        upref= Preference()
-
-                        upref.user= request.user
-
-                        upref.post= eachpost
-
-                        upref.value= userpreference
-
-                        userpreference= int(userpreference)
-
-                        if userpreference == 1:
-                                eachpost.likes += 1
-                        elif userpreference == 2:
-                                eachpost.dislikes +=1
-
-                        upref.save()
-
-                        eachpost.save()                            
-
-
-                        context= {'eachpost': eachpost,
-                          'postid': postid}
-
-                        return redirect('blog-home')
-
-
-        else:
-                eachpost= get_object_or_404(Post, id=postid)
-                context= {'eachpost': eachpost,
-                          'postid': postid}
+                context = {'eachpost': eachpost,
+                           'postid': postid}
 
                 return redirect('blog-home')
 
 
 
-def about(request):
-    return render(request,'blog/about.html',)
 
+        except Preference.DoesNotExist:
+            upref = Preference()
+
+            upref.user = request.user
+
+            upref.post = eachpost
+
+            upref.value = userpreference
+
+            userpreference = int(userpreference)
+
+            if userpreference == 1:
+                eachpost.likes += 1
+            elif userpreference == 2:
+                eachpost.dislikes += 1
+
+            upref.save()
+
+            eachpost.save()
+
+            context = {'eachpost': eachpost,
+                       'postid': postid}
+
+            return redirect('blog-home')
+
+
+    else:
+        eachpost = get_object_or_404(Post, id=postid)
+        context = {'eachpost': eachpost,
+                   'postid': postid}
+
+        return redirect('blog-home')
+
+
+def about(request):
+    return render(request, 'blog/about.html', )
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -337,29 +333,50 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-
 @api_view(['GET', 'POST', 'DELETE'])
 def post_list(request):
     if request.method == 'GET':
         posts = Post.objects.all()
-        
+
         title = request.query_params.get('title', None)
         if title is not None:
             posts = posts.filter(title__icontains=title)
-        
+
         posts_serializer = PostSerializer(posts, many=True)
         return JsonResponse(posts_serializer.data, safe=False)
         # 'safe=False' for objects serialization
- 
+
     elif request.method == 'POST':
         post_data = JSONParser().parse(request)
         post_serializer = PostSerializer(data=post_data)
         if post_serializer.is_valid():
             post_serializer.save()
-            return JsonResponse(post_serializer.data, status=status.HTTP_201_CREATED) 
+            return JsonResponse(post_serializer.data, status=status.HTTP_201_CREATED)
         return JsonResponse(post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     elif request.method == 'DELETE':
         count = Post.objects.all().delete()
-        return JsonResponse({'message': '{} Posts were deleted successfully!'.format(count[0])}, status=status.HTTP_204_NO_CONTENT)
- 
+        return JsonResponse({'message': '{} Posts were deleted successfully!'.format(count[0])},
+                            status=status.HTTP_204_NO_CONTENT)
+
+
+#  # ML Deploy====================================================================================
+
+def getPredictions(content):
+    # Load the model
+    model = pickle.load(open('Cyberbullying_Detection_One.pkl','rb'))
+    save_cv = pickle.load(open('count-Vectorizer.pkl','rb'))
+
+    prediction = model.predict(save_cv.transform([content]))
+    if prediction == 1:
+        return "Cyberbullying"
+    else:
+        return "Not Cyberbullying"
+
+
+def result(request):
+    content = str(request.GET['content'])
+    result = getPredictions(content)
+
+    return render(request, 'result.html', {'result': result})
+    # return render(request, 'result.html', {'result': result})

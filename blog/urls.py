@@ -14,6 +14,7 @@ from .import views
 from django.urls import include
 from rest_framework import routers
 
+
 router = routers.DefaultRouter()
 router.register(r'users', views.UserViewSet)
 router.register(r'groups', views.GroupViewSet)
@@ -32,5 +33,7 @@ urlpatterns = [
     path('post/<int:postid>/preference/<int:userpreference>', postpreference, name='postpreference'),
     path('l/', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('api/posts', post_list)
+    path('api/posts', post_list),
+    path('result',views.result, name="result")
 ]
+
